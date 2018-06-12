@@ -13,6 +13,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        if (!class_exists('Storage')) {
+            class_alias('Illuminate\Support\Facades\Storage', 'Storage');
+        }
+
+        $this->app->register(\Illuminate\Filesystem\FilesystemServiceProvider::class);
+
+#        $this->app->configure('filesystems');
+
+        if ($this->app->environment() !== 'production') {
+            $this->app->register(\Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class);
+        }
     }
 }
