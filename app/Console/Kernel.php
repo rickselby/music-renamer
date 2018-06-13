@@ -13,7 +13,8 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        Commands\RenameCommand::class
+        Commands\RenameCommand::class,
+        Commands\RenameNoVerifyCommand::class,
     ];
 
     /**

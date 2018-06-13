@@ -34,21 +34,26 @@ class RenameService
         $this->parseDirectory('/', $command);
     }
 
+    public function renameWithoutVerify(Command $command)
+    {
+        $this->parseDirectory('/', $command, false);
+    }
+
     /**
      * Parse a single directory
      *
      * @param string $directory
      */
-    protected function parseDirectory(string $directory, Command $command)
+    protected function parseDirectory(string $directory, Command $command, bool $verify = true)
     {
         foreach ($this->source->directories($directory) as $subDirectory) {
-            $this->parseDirectory($subDirectory, $command);
+            $this->parseDirectory($subDirectory, $command, $verify);
         }
 
         if (count($this->source->files($directory))) {
             $tags = $this->getTags($directory);
 
-            if ($this->verifyService->verify($tags)) {
+            if (!$verify || $this->verifyService->verify($tags)) {
                 $command->info('Moving "'.$directory.'"');
                 $this->moveFiles($directory, $tags);
             } else {
