@@ -1,0 +1,16 @@
+version: '2'
+services:
+  php:
+    image: php:7.2-fpm
+    volumes:
+      - .:/opt/project
+    user: "${UID}:${GID}"
+    working_dir: /opt/project
+  composer:
+    image: composer
+    volumes_from:
+      - php
+    user: "${UID}:${GID}"
+    working_dir: /opt/project
+volumes:
+  teaching-db:

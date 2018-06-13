@@ -4,6 +4,7 @@ namespace App\Services;
 
 use \Illuminate\Contracts\Filesystem\Filesystem;
 use \getID3;
+use Illuminate\Support\Collection;
 
 class RenameService
 {
@@ -39,11 +40,36 @@ class RenameService
             $this->parseDirectory($subDirectory);
         }
 
-        if ($this->verifyService->verify($directory)) {
-            dd($directory, 'yup');
-            // Move the files to the destination
+        if (count($this->source->files($directory))) {
+            $tags = $this->getTags($directory);
+
+            if ($this->verifyService->verify($tags)) {
+                dd($directory, 'yup');
+                // Move the files to the destination
+            } else {
+                // Report the error
+            }
         } else {
-            // Report the error
+            // Note empty directory
         }
+    }
+
+    /**
+     * Get the id3 tags for all files in a directory
+     *
+     * @param string $directory
+     *
+     * @return Collection
+     */
+    protected function getTags($directory)
+    {
+        $tags = collect();
+        foreach ($this->source->files($directory) as $file) {
+            $tags->put(
+                basename($file),
+                collect($this->id3->analyze($this->source->path($file))['tags']['id3v2'])
+            );
+        }
+        return $tags;
     }
 }

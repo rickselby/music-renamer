@@ -2,76 +2,99 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
+
 class VerifyService
 {
+    /** @var Collection */
+    protected $errors;
+
+    /** @var Collection */
+    protected $tags;
+
     /**
      * Verify a given directory can be renamed
      *
-     * @param string $directory
+     * @param Collection $tags
      *
      * @return boolean
      */
-    public function verify(string $directory)
+    public function verify(Collection $tags)
     {
-        // TODO
-    }
+        $this->errors = collect();
+        $this->tags = $tags;
 
-    /**
-     * Confirm that each file in a directory has the same Album Name and Album Artist
-     *
-     * @param string $directory
-     *
-     * @return bool
-     *
-    protected function checkFilesHaveSameAlbumAndAlbumArtist(string $directory)
-    {
-        $album = null;
-        $artist = null;
+        $this->verifyAllTagsHaveField('artist');
+        $this->verifyAllTagsHaveField('album');
+        $this->verifyAllTagsHaveField('title');
 
-        foreach ($this->source->files($directory) as $file) {
+        $this->verifyAllFieldsAreTheSame('album');
 
-            $sth = $this->id3->analyze($this->source->path($file));
-
-            $id3 = $sth['id3v2'];
-            unset($id3['APIC']);
-
-            dd(
-                array_keys($sth)
-            );
-
-            $tags = $this->id3->analyze($this->source->path($file))['tags']['id3v2'];
-
-            if ($album) {
-                if ($album != $tags['album']) {
-                    return false;
-                }
-            } else {
-                $album = $tags['album'];
-            }
-
-            if ($artist) {
-                if ($artist != $this->getArtist($tags)) {
-                    return false;
-                }
-            } else {
-                $artist = $this->getArtist($tags);
-            }
+        if ($this->hasField('band')) {
+            // Is a 'Various Artists' album, so verify that's all the same
+            // Could have different artists per track
+            $this->verifyAllTagsHaveField('band');
+            $this->verifyAllFieldsAreTheSame('band');
+        } else {
+            // Single artist album
+            $this->verifyAllFieldsAreTheSame('artist');
         }
 
-        return true;
+        return $this->errors->count() ? true : false;
     }
-     */
 
     /**
-     * Get the artist from tags - prefer the album artist
-     *
-     * @param array $tags
-     *
-     * @return string
-     *
-    protected function getArtist(array $tags)
-    {
-        return $tags['band'] ?? $tags['artist'];
-    }
+     * Get a list of errors from the last verification
+     * @return Collection
      */
+    public function getErrors()
+    {
+        return $this->errors;
+    }
+
+    /**
+     * Get a count of the total number of files
+     *
+     * @return int
+     */
+    protected function numFiles()
+    {
+        return $this->tags->count();
+    }
+
+    /**
+     * Check all files have the given field
+     *
+     * @param string $field
+     */
+    protected function verifyAllTagsHaveField(string $field)
+    {
+        if ($this->tags->pluck($field)->filter()->count() != $this->numFiles()) {
+            $this->errors->push('Not all files have the "'.$field.'" field');
+        }
+    }
+
+    /**
+     * Check all of the given field are the same
+     *
+     * @param string $field
+     */
+    protected function verifyAllFieldsAreTheSame(string $field)
+    {
+        if ($this->tags->pluck($field)->unique()->count() != 1) {
+            $this->errors->push('"'.$field.'" should be unique, but is not');
+        }
+    }
+
+    /**
+     * Check if any files have the given field
+     *
+     * @param $field
+     *
+     * @return bool
+     */
+    protected function hasField($field)
+    {
+        return $this->tags->pluck($field)->filter()->count() ? true : false;
+    }
 }
