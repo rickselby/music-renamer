@@ -43,7 +43,9 @@ class VerifyService
         $this->verifyTrackCountCorrect();
         $this->verifyTrackNumbersCorrect();
 
-        return $this->errors->count() ? true : false;
+        $this->verifyDiscs();
+
+        return $this->errors->count() ? false : true;
     }
 
     /**
@@ -103,7 +105,7 @@ class VerifyService
 
     protected function verifyTrackCountCorrect()
     {
-        $this->eachDisk(function ($disc) {
+        $this->eachDisc(function ($disc) {
             $discTracks = $this->tags->where('part_of_a_set', $disc);
 
             $trackCounts = $discTracks->pluck('track_number')->map(function ($trackNumber) {
@@ -124,7 +126,7 @@ class VerifyService
 
     protected function verifyTrackNumbersCorrect()
     {
-        $this->eachDisk(function ($disc) {
+        $this->eachDisc(function ($disc) {
             $discTracks = $this->tags->where('part_of_a_set', $disc);
 
             $trackNumbers = $discTracks->pluck('track_number')->map(function ($trackNumber) {
@@ -141,8 +143,49 @@ class VerifyService
         });
     }
 
-    protected function eachDisk(callable $callable)
+    protected function eachDisc(callable $callable)
     {
         $this->tags->pluck('part_of_a_set')->unique()->each($callable);
+    }
+
+    protected function verifyDiscs()
+    {
+        $discs = $this->tags->pluck('part_of_a_set')->unique();
+
+        $this->verifyDiscCounts($discs);
+        $this->verifyDiscNumbers($discs);
+    }
+
+    protected function verifyDiscCounts(Collection $discs)
+    {
+        $discCounts = $discs->map(function ($discNumber) {
+            return explode('/', $discNumber[0])[1];
+        });
+
+        if ($discCounts->unique()->count() != 1) {
+            $this->errors->push('Disc counts are different between tracks');
+        }
+
+        $discCounts->each(function ($trackCount) use ($discs) {
+            if ($trackCount != $discs->count()) {
+                $this->errors->push('Disc count is incorrect');
+            }
+        });
+    }
+
+    protected function verifyDiscNumbers(Collection $discs)
+    {
+        $discNumbers = $discs->map(function ($discNumber) {
+            return explode('/', $discNumber[0])[0];
+        });
+
+
+        if ($discNumbers->unique()->count() != $discNumbers->count()) {
+            $this->errors->push('There are duplicate disc numbers');
+        }
+
+        if ($discNumbers->max() != $discNumbers->count()) {
+            $this->errors->push('Disc numbers are incorrect');
+        }
     }
 }
