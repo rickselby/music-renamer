@@ -3,15 +3,24 @@
 namespace App\Services;
 
 use \Illuminate\Contracts\Filesystem\Filesystem;
+use \getID3;
 
 class RenameService
 {
     /** @var Filesystem */
     protected $source;
 
-    public function __construct()
+    /** @var getID3 */
+    protected $id3;
+
+    /** @var VerifyService */
+    private $verifyService;
+
+    public function __construct(getID3 $getID3, VerifyService $verifyService)
     {
         $this->source = \Storage::disk('source');
+        $this->id3 = $getID3;
+        $this->verifyService = $verifyService;
     }
 
     public function rename()
@@ -30,26 +39,11 @@ class RenameService
             $this->parseDirectory($subDirectory);
         }
 
-        if ($this->checkFilesHaveSameAlbumAndAlbumArtist($directory)) {
+        if ($this->verifyService->verify($directory)) {
+            dd($directory, 'yup');
             // Move the files to the destination
         } else {
             // Report the error
         }
-    }
-
-    /**
-     * Confirm that each file in a directory has the same Album Name and Album Artist
-     *
-     * @param string $directory
-     *
-     * @return bool
-     */
-    protected function checkFilesHaveSameAlbumAndAlbumArtist(string $directory)
-    {
-        foreach ($this->source->files($directory) as $file) {
-            // TODO
-        }
-
-        return false;
     }
 }
