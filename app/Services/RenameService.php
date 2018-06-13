@@ -83,46 +83,62 @@ class RenameService
 
     protected function moveFiles(string $directory, Collection $files)
     {
-        /* ArtistName/AlbumName/TrackNumber - TrackName.ext */
-        /* ArtistName/AlbumName/DiscNumber - TrackNumber - TrackName.ext */
-
         $discNumbers = ($files->pluck('part_of_a_set')->unique()->count() != 1);
+        $differentArtists = ($files->pluck('artist')->unique()->count() != 1);
 
-        $files->each(function (Collection $tags, $file) use ($directory, $discNumbers) {
+        $files->each(function (Collection $tags, $file) use ($directory, $discNumbers, $differentArtists) {
+            // Build the source path
             $sourcePath = $directory . DIRECTORY_SEPARATOR . $file;
 
-            if ($discNumbers) {
-                $destinationPath =
-                    $tags->get('band')[0]
-                    . DIRECTORY_SEPARATOR
-                    . $tags->get('album')[0]
-                    . DIRECTORY_SEPARATOR
-                    . $this->getDiscNumber($tags)
-                    .' - '
-                    . $this->getTrackNumber($tags)
-                    . ' - '
-                    . $tags->get('artist')[0]
-                    . ' - '
-                    . $tags->get('title')[0];
-
-            } else {
-                $destinationPath =
-                    $tags->get('artist')[0]
-                    . DIRECTORY_SEPARATOR
-                    . $tags->get('album')[0]
-                    . DIRECTORY_SEPARATOR
-                    . $this->getTrackNumber($tags)
-                    . ' - '
-                    . $tags->get('title')[0];
-            }
-
             // Copy the file
-            $this->destination->put($destinationPath, $this->source->readStream($sourcePath));
+            $this->destination->put(
+                $this->getDestinationPath($tags, $differentArtists, $discNumbers),
+                $this->source->readStream($sourcePath)
+            );
+
             // Remove the source
             $this->source->delete($sourcePath);
         });
 
         $this->source->deleteDir($directory);
+    }
+
+    /**
+     * Generate the destination filename
+     *
+     * @param Collection $tags
+     * @param bool $differentArtists
+     * @param bool $discNumbers
+     *
+     * @return string
+     */
+    protected function getDestinationPath(Collection $tags, bool $differentArtists, bool $discNumbers)
+    {
+        /* [Artist|AlbumArtist]Name/AlbumName/[DiscNumber - ]TrackNumber - [ArtistName - ]TrackName.ext */
+
+        $destinationPath = '';
+
+        if ($differentArtists) {
+            $destinationPath .= $tags->get('band')[0];
+        } else {
+            $destinationPath .= $tags->get('artist')[0];
+        }
+
+        $destinationPath .= DIRECTORY_SEPARATOR . $tags->get('album')[0] . DIRECTORY_SEPARATOR;
+
+        if ($discNumbers) {
+            $destinationPath .= $this->getDiscNumber($tags).' - ';
+        }
+
+        $destinationPath .= $this->getTrackNumber($tags). ' - ';
+
+        if ($differentArtists) {
+            $destinationPath .= $tags->get('artist')[0] . ' - ';
+        }
+
+        $destinationPath .= $tags->get('title')[0];
+
+        return $destinationPath;
     }
 
     protected function getDiscNumber(Collection $tags)
