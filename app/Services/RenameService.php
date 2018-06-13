@@ -26,7 +26,7 @@ class RenameService
 
     public function rename()
     {
-        $this->parseDirectory('/');
+        $this->parseDirectory('/Now That\'s What I Call Music 9');
     }
 
     /**

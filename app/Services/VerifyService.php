@@ -40,6 +40,9 @@ class VerifyService
             $this->verifyAllFieldsAreTheSame('artist');
         }
 
+        $this->verifyTrackCountCorrect();
+        $this->verifyTrackNumbersCorrect();
+
         return $this->errors->count() ? true : false;
     }
 
@@ -96,5 +99,50 @@ class VerifyService
     protected function hasField($field)
     {
         return $this->tags->pluck($field)->filter()->count() ? true : false;
+    }
+
+    protected function verifyTrackCountCorrect()
+    {
+        $this->eachDisk(function ($disc) {
+            $discTracks = $this->tags->where('part_of_a_set', $disc);
+
+            $trackCounts = $discTracks->pluck('track_number')->map(function ($trackNumber) {
+                return explode('/', $trackNumber[0])[1];
+            });
+
+            if ($trackCounts->unique()->count() != 1) {
+                $this->errors->push('Track counts are different between tracks');
+            }
+
+            $trackCounts->each(function ($trackCount) use ($discTracks) {
+                if ($trackCount != $discTracks->count()) {
+                    $this->errors->push('Track count is incorrect');
+                }
+            });
+        });
+    }
+
+    protected function verifyTrackNumbersCorrect()
+    {
+        $this->eachDisk(function ($disc) {
+            $discTracks = $this->tags->where('part_of_a_set', $disc);
+
+            $trackNumbers = $discTracks->pluck('track_number')->map(function ($trackNumber) {
+                return explode('/', $trackNumber[0])[0];
+            });
+
+            if ($trackNumbers->unique()->count() != $trackNumbers->count()) {
+                $this->errors->push('There are duplicate track numbers');
+            }
+
+            if ($trackNumbers->max() != $discTracks->count()) {
+                $this->errors->push('Track numbers are incorrect');
+            }
+        });
+    }
+
+    protected function eachDisk(callable $callable)
+    {
+        $this->tags->pluck('part_of_a_set')->unique()->each($callable);
     }
 }
