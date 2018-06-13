@@ -31,12 +31,17 @@ class RenameService
 
     public function renameAndVerify(Command $command)
     {
-        $this->parseDirectory('/', $command);
+        $this->parseDirectory('/', $command, $this->destination);
     }
 
     public function renameWithoutVerify(Command $command)
     {
-        $this->parseDirectory('/', $command, false);
+        $this->parseDirectory('/', $command, $this->destination, false);
+    }
+
+    public function renameLocally(Command $command)
+    {
+        $this->parseDirectory('/', $command, $this->source, false);
     }
 
     /**
@@ -44,10 +49,10 @@ class RenameService
      *
      * @param string $directory
      */
-    protected function parseDirectory(string $directory, Command $command, bool $verify = true)
+    protected function parseDirectory(string $directory, Command $command, Filesystem $destination, bool $verify = true)
     {
         foreach ($this->source->directories($directory) as $subDirectory) {
-            $this->parseDirectory($subDirectory, $command, $verify);
+            $this->parseDirectory($subDirectory, $command, $destination, $verify);
         }
 
         if (count($this->source->files($directory))) {
@@ -55,7 +60,7 @@ class RenameService
 
             if (!$verify || $this->verifyService->verify($tags)) {
                 $command->info('Moving "'.$directory.'"');
-                $this->moveFiles($directory, $tags);
+                $this->moveFiles($directory, $tags, $destination);
             } else {
                 $command->error('Could not move "'.$directory.'"');
                 $this->verifyService->getErrors()->each(function ($error) use ($command) {
@@ -86,23 +91,31 @@ class RenameService
         return $tags;
     }
 
-    protected function moveFiles(string $directory, Collection $files)
+    /**
+     * Move files from the given directory to the given destination
+     *
+     * @param string $directory
+     * @param Collection $files
+     * @param Filesystem $destination
+     */
+    protected function moveFiles(string $directory, Collection $files, Filesystem $destination)
     {
         $discNumbers = ($files->pluck('part_of_a_set')->unique()->count() != 1);
         $differentArtists = ($files->pluck('artist')->unique()->count() != 1);
 
-        $files->each(function (Collection $tags, $file) use ($directory, $discNumbers, $differentArtists) {
+        $files->each(function (Collection $tags, $file) use ($directory, $discNumbers, $differentArtists, $destination) {
             // Build the source path
             $sourcePath = $directory . DIRECTORY_SEPARATOR . $file;
+            $destinationPath = $this->getDestinationPath($tags, $differentArtists, $discNumbers);
 
-            // Copy the file
-            $this->destination->put(
-                $this->getDestinationPath($tags, $differentArtists, $discNumbers),
-                $this->source->readStream($sourcePath)
-            );
+            // Don't copy and delete if source and destination are the same
+            if ($this->source->path($sourcePath) != $destination->path($destinationPath)) {
+                // Copy the file
+                $destination->put($destinationPath, $this->source->readStream($sourcePath));
 
-            // Remove the source
-            $this->source->delete($sourcePath);
+                // Remove the source, if the files are not identical
+                $this->source->delete($sourcePath);
+            }
         });
 
         $this->source->deleteDir($directory);
@@ -142,6 +155,8 @@ class RenameService
         }
 
         $destinationPath .= $tags->get('title')[0];
+
+        $destinationPath .= '.mp3';
 
         return $destinationPath;
     }

@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\RenameCommand::class,
+        Commands\RenameLocalCommand::class,
         Commands\RenameNoVerifyCommand::class,
     ];
 
