@@ -35,6 +35,6 @@ class RenameCommand extends Command
      */
     public function handle()
     {
-        $this->renameService->rename();
+        $this->renameService->rename($this);
     }
 }

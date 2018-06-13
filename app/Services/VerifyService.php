@@ -54,7 +54,7 @@ class VerifyService
      */
     public function getErrors()
     {
-        return $this->errors;
+        return $this->errors->unique();
     }
 
     /**

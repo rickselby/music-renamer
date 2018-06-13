@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use \Illuminate\Contracts\Filesystem\Filesystem;
-use \getID3;
+use getID3;
+use Illuminate\Console\Command;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 
 class RenameService
@@ -24,9 +25,9 @@ class RenameService
         $this->verifyService = $verifyService;
     }
 
-    public function rename()
+    public function rename(Command $command)
     {
-        $this->parseDirectory('/');
+        $this->parseDirectory('/', $command);
     }
 
     /**
@@ -34,23 +35,25 @@ class RenameService
      *
      * @param string $directory
      */
-    protected function parseDirectory(string $directory)
+    protected function parseDirectory(string $directory, Command $command)
     {
         foreach ($this->source->directories($directory) as $subDirectory) {
-            $this->parseDirectory($subDirectory);
+            $this->parseDirectory($subDirectory, $command);
         }
 
         if (count($this->source->files($directory))) {
             $tags = $this->getTags($directory);
 
             if ($this->verifyService->verify($tags)) {
-                dd($directory, 'yup');
                 // Move the files to the destination
             } else {
-                // Report the error
+                $command->error('Could not move "'.$directory.'"');
+                $this->verifyService->getErrors()->each(function ($error) use ($command) {
+                    $command->comment($error);
+                });
             }
         } else {
-            // Note empty directory
+            $command->info('Directory "'.$directory.'" is empty');
         }
     }
 
