@@ -41,7 +41,7 @@ class RenameService
 
     public function renameLocally(Command $command)
     {
-        $this->parseDirectory('/Various Artists', $command, $this->source, false);
+        $this->parseDirectory('/', $command, $this->source, false);
     }
 
     /**
@@ -69,6 +69,11 @@ class RenameService
             }
         } else {
             $command->info('Directory "'.$directory.'" is empty');
+        }
+
+        // Only delete the directory if it's truly empty
+        if (empty($this->source->allFiles($directory)) && empty($this->source->allDirectories($directory))) {
+            $this->source->deleteDir($directory);
         }
     }
 
@@ -100,9 +105,12 @@ class RenameService
      */
     protected function moveFiles(string $directory, Collection $files, Filesystem $destination)
     {
+        // Check if there are different disc numbers in the directory
         $discNumbers = ($files->pluck('part_of_a_set')->unique()->count() != 1);
+
+        // Check if there are album artists, and if they are different to the track artists
         $differentArtists =
-            $files->filter(function ($tag) {
+            $files->filter(function (Collection $tag) {
                 return $tag->get('band') && ($tag->get('band') != $tag->get('artist'));
             })->count() > 0;
 
@@ -116,15 +124,9 @@ class RenameService
                 // Copy the file
                 $destination->put($destinationPath, $this->source->readStream($sourcePath));
 
-                // Remove the source, if the files are not identical
                 $this->source->delete($sourcePath);
             }
         });
-
-        // Only delete the directory if it's empty
-        if (empty($this->source->allFiles($directory)) && empty($this->source->allDirectories($directory))) {
-            $this->source->deleteDir($directory);
-        }
     }
 
     /**
@@ -140,38 +142,44 @@ class RenameService
     {
         /* [Artist|AlbumArtist]Name/AlbumName/[DiscNumber - ]TrackNumber - [ArtistName - ]TrackName.ext */
 
-        $destinationPath = '';
-
-        if ($differentArtists) {
-            $destinationPath .= $tags->get('band')[0];
-        } else {
-            $destinationPath .= $tags->get('artist')[0];
-        }
-
-        $destinationPath .= DIRECTORY_SEPARATOR . $tags->get('album')[0] . DIRECTORY_SEPARATOR;
-
-        if ($discNumbers) {
-            $destinationPath .= $this->getDiscNumber($tags).' - ';
-        }
-
-        $destinationPath .= $this->getTrackNumber($tags). ' - ';
-
-        if ($differentArtists) {
-            $destinationPath .= $tags->get('artist')[0] . ' - ';
-        }
-
-        $destinationPath .= $tags->get('title')[0];
-
-        $destinationPath .= '.mp3';
-
-        return $destinationPath;
+        return
+            // First folder - album artist or artist
+            $this->sanitisePathPath(
+                $differentArtists ? $tags->get('band')[0] : $tags->get('artist')[0]
+            ). DIRECTORY_SEPARATOR
+            // Subfolder - album name
+            . $this->sanitisePathPath($tags->get('album')[0]) . DIRECTORY_SEPARATOR
+            // Disc number first, if required
+            . ($discNumbers ? $this->getDiscNumber($tags).' - ' : '')
+            // Then track number
+            . $this->getTrackNumber($tags). ' - '
+            // If the album has different artists, list the artist next
+            . ($differentArtists ? $this->sanitisePathPath($tags->get('artist')[0]) . ' - ' : '')
+            // Finally the track name
+            . $this->sanitisePathPath($tags->get('title')[0])
+            . '.mp3'
+        ;
     }
 
-    protected function getDiscNumber(Collection $tags)
+    /**
+     * Get the disc number for the given file
+     *
+     * @param Collection $tag
+     *
+     * @return mixed
+     */
+    protected function getDiscNumber(Collection $tag)
     {
-        return explode('/', $tags->get('part_of_a_set')[0])[0];
+        return explode('/', $tag->get('part_of_a_set')[0])[0];
     }
 
+    /**
+     * Get the track number for the given file
+     *
+     * @param Collection $tags
+     *
+     * @return string
+     */
     protected function getTrackNumber(Collection $tags)
     {
         return str_pad(
@@ -180,5 +188,20 @@ class RenameService
             '0',
             STR_PAD_LEFT
         );
+    }
+
+    /**
+     * Sanitise a directory / file name
+     *
+     * @param string $string
+     *
+     * @return string
+     */
+    protected function sanitisePathPath(string $string)
+    {
+        $string = str_replace('/', '-', $string);
+        $string = str_replace('&', 'and', $string);
+
+        return $string;
     }
 }
