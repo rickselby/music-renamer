@@ -118,7 +118,10 @@ class RenameService
             }
         });
 
-        $this->source->deleteDir($directory);
+        // Only delete the directory if it's empty
+        if (empty($this->source->allFiles($directory)) && empty($this->source->allDirectories($directory))) {
+            $this->source->deleteDir($directory);
+        }
     }
 
     /**
