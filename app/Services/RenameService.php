@@ -41,7 +41,7 @@ class RenameService
 
     public function renameLocally(Command $command)
     {
-        $this->parseDirectory('/', $command, $this->source, false);
+        $this->parseDirectory('/Various Artists', $command, $this->source, false);
     }
 
     /**
@@ -101,7 +101,10 @@ class RenameService
     protected function moveFiles(string $directory, Collection $files, Filesystem $destination)
     {
         $discNumbers = ($files->pluck('part_of_a_set')->unique()->count() != 1);
-        $differentArtists = ($files->pluck('artist')->unique()->count() != 1);
+        $differentArtists =
+            $files->filter(function ($tag) {
+                return $tag->get('band') && ($tag->get('band') != $tag->get('artist'));
+            })->count() > 0;
 
         $files->each(function (Collection $tags, $file) use ($directory, $discNumbers, $differentArtists, $destination) {
             // Build the source path
