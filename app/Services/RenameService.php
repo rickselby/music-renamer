@@ -200,7 +200,9 @@ class RenameService
     protected function sanitisePathPath(string $string)
     {
         $string = str_replace('/', '-', $string);
-        $string = str_replace('&', 'and', $string);
+        $string = str_replace(['*', '$', '#', '%', '^'], '_', $string);
+        $string = str_replace(['&', '+'], 'and', $string);
+        $string = str_replace(['\'', '"', '!', '?', '’'], '', $string);
 
         return $string;
     }
