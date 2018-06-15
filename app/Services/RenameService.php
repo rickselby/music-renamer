@@ -21,6 +21,9 @@ class RenameService
     /** @var VerifyService */
     private $verifyService;
 
+    /** @var Command */
+    private $command;
+
     public function __construct(getID3 $getID3, VerifyService $verifyService)
     {
         $this->source = \Storage::disk('source');
@@ -31,17 +34,25 @@ class RenameService
 
     public function renameAndVerify(Command $command)
     {
-        $this->parseDirectory('/', $command, $this->destination);
+        $this->setCommand($command);
+        $this->parseDirectory('/', $this->destination);
     }
 
     public function renameWithoutVerify(Command $command)
     {
-        $this->parseDirectory('/', $command, $this->destination, false);
+        $this->setCommand($command);
+        $this->parseDirectory('/', $this->destination, false);
     }
 
     public function renameLocally(Command $command)
     {
-        $this->parseDirectory('/', $command, $this->source, false);
+        $this->setCommand($command);
+        $this->parseDirectory('/', $this->source, false);
+    }
+
+    private function setCommand(Command $command)
+    {
+        $this->command = $command;
     }
 
     /**
@@ -49,26 +60,26 @@ class RenameService
      *
      * @param string $directory
      */
-    protected function parseDirectory(string $directory, Command $command, Filesystem $destination, bool $verify = true)
+    protected function parseDirectory(string $directory, Filesystem $destination, bool $verify = true)
     {
         foreach ($this->source->directories($directory) as $subDirectory) {
-            $this->parseDirectory($subDirectory, $command, $destination, $verify);
+            $this->parseDirectory($subDirectory, $destination, $verify);
         }
 
         if (count($this->source->files($directory))) {
             $tags = $this->getTags($directory);
 
             if (!$verify || $this->verifyService->verify($tags)) {
-                $command->info('Moving "'.$directory.'"');
+                $this->command->info('Moving "'.$directory.'"');
                 $this->moveFiles($directory, $tags, $destination);
             } else {
-                $command->error('Could not move "'.$directory.'"');
-                $this->verifyService->getErrors()->each(function ($error) use ($command) {
-                    $command->comment($error);
+                $this->command->error('Could not move "'.$directory.'"');
+                $this->verifyService->getErrors()->each(function ($error) {
+                    $this->command->comment($error);
                 });
             }
         } else {
-            $command->info('Directory "'.$directory.'" is empty');
+            $this->command->info('Directory "'.$directory.'" is empty');
         }
 
         // Only delete the directory if it's truly empty
