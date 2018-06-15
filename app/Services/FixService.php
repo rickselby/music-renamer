@@ -50,6 +50,7 @@ class FixService
         if (count($this->source->files($directory))) {
             $tags = $this->getTags($directory);
             $this->tryToFixTrackCount($directory, $tags);
+            $this->tryToFixDiscCount($directory, $tags);
         }
     }
 
@@ -115,9 +116,9 @@ class FixService
     /**
      * Update the track count only for a file
      *
-     * @param string $path
-     * @param Collection $tags
-     * @param $count
+     * @param string $path Full path to the file
+     * @param Collection $tags Tags for the file
+     * @param int $count New track count
      */
     protected function updateTrackCount(string $path, Collection $tags, $count)
     {
@@ -125,6 +126,49 @@ class FixService
         $tags = clone $tags;
 
         $tags->put('track_number', [$number.'/'.$count]);
+        $this->updateTags($path, $tags);
+    }
+
+    /**
+     * See if we can quickly fix the track count for a directory
+     *
+     * @param string $directory
+     * @param Collection $tags
+     */
+    protected function tryToFixDiscCount(string $directory, Collection $tags)
+    {
+        $discCounts = $tags->pluck('part_of_a_set')->map(function ($discNumber) {
+            return explode('/', $discNumber[0])[1];
+        });
+
+        $discCount = $tags->pluck('part_of_a_set')->unique()->count();
+
+        if ($discCounts->unique()->count() == 1 && $discCounts->unique()->first() == '0') {
+            $this->command->info('Adding disc count to '.$directory);
+
+            $tags->each(function ($trackTags, $filename) use ($directory, $discCount) {
+                $this->updateDiscCount(
+                    $this->source->path($directory.DIRECTORY_SEPARATOR.$filename),
+                    $trackTags,
+                    $discCount
+                );
+            });
+        }
+    }
+
+    /**
+     * Update the disc count only for a file
+     *
+     * @param string $path Full path to the file
+     * @param Collection $tags Tags for the file
+     * @param int $count New disc count
+     */
+    protected function updateDiscCount(string $path, Collection $tags, $count)
+    {
+        $number = explode('/', $tags['part_of_a_set'][0])[0];
+        $tags = clone $tags;
+
+        $tags->put('part_of_a_set', [$number.'/'.$count]);
         $this->updateTags($path, $tags);
     }
 
