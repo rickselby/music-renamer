@@ -100,7 +100,7 @@ class FixService
             });
 
             if ($trackCounts->unique()->count() == 1 && $trackCounts->unique()->first() == '0') {
-                $this->command->info('Adding track count to '.$directory.' disc '.$disc);
+                $this->command->info('Adding track count to '.$directory.' disc '.$disc[0]);
 
                 $discTracks->each(function ($trackTags, $filename) use ($directory, $discTracks) {
                     $this->updateTrackCount(
