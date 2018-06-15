@@ -123,8 +123,6 @@ class FixService
     protected function updateTrackCount(string $path, Collection $tags, $count)
     {
         $number = explode('/', $tags['track_number'][0])[0];
-        $tags = clone $tags;
-
         $tags->put('track_number', [$number.'/'.$count]);
         $this->updateTags($path, $tags);
     }
@@ -182,8 +180,6 @@ class FixService
     protected function updateDiscCount(string $path, Collection $tags, $count)
     {
         $number = explode('/', $tags['part_of_a_set'][0])[0];
-        $tags = clone $tags;
-
         $tags->put('part_of_a_set', [$number.'/'.$count]);
         $this->updateTags($path, $tags);
     }
@@ -197,7 +193,6 @@ class FixService
      */
     protected function updateSingleDiscNumber(string $path, Collection $tags)
     {
-        $tags = clone $tags;
         $tags->put('part_of_a_set', ['1/1']);
         $this->updateTags($path, $tags);
     }
