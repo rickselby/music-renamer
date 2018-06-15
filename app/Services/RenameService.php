@@ -78,12 +78,14 @@ class RenameService
                     $this->command->comment($error);
                 });
             }
-        } else {
-            $this->command->info('Directory "'.$directory.'" is empty');
         }
 
-        // Only delete the directory if it's truly empty
-        if (empty($this->source->allFiles($directory)) && empty($this->source->allDirectories($directory))) {
+        // Only delete the directory if it's truly empty and not the root
+        if (empty($this->source->allFiles($directory))
+            && empty($this->source->allDirectories($directory))
+            && $directory != '/')
+        {
+            $this->command->info('Directory "'.$directory.'" is empty; removing');
             $this->source->deleteDir($directory);
         }
     }
