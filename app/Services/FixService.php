@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use getID3;
 use getid3_writetags;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -10,19 +9,17 @@ use Illuminate\Support\Collection;
 
 class FixService
 {
+    use GetTagsTrait;
+
     /** @var Filesystem */
     protected $source;
-
-    /** @var getID3 */
-    protected $id3;
 
     /** @var Command */
     protected $command;
 
-    public function __construct(getID3 $getID3)
+    public function __construct()
     {
         $this->source = \Storage::disk('source');
-        $this->id3 = $getID3;
     }
 
     /**
@@ -48,29 +45,10 @@ class FixService
         }
 
         if (count($this->source->files($directory))) {
-            $tags = $this->getTags($directory);
+            $tags = $this->getTags($this->source, $directory);
             $this->tryToFixTrackCount($directory, $tags);
             $this->tryToFixDiscCount($directory, $tags);
         }
-    }
-
-    /**
-     * Get the id3 tags for all files in a directory
-     *
-     * @param string $directory
-     *
-     * @return Collection
-     */
-    protected function getTags($directory)
-    {
-        $tags = collect();
-        foreach ($this->source->files($directory) as $file) {
-            $tags->put(
-                basename($file),
-                collect($this->id3->analyze($this->source->path($file))['tags']['id3v2'])
-            );
-        }
-        return $tags;
     }
 
     /**

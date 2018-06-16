@@ -2,21 +2,19 @@
 
 namespace App\Services;
 
-use getID3;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 
 class RenameService
 {
+    use GetTagsTrait;
+
     /** @var Filesystem */
     protected $source;
 
     /** @var Filesystem */
     protected $destination;
-
-    /** @var getID3 */
-    protected $id3;
 
     /** @var VerifyService */
     private $verifyService;
@@ -24,11 +22,10 @@ class RenameService
     /** @var Command */
     private $command;
 
-    public function __construct(getID3 $getID3, VerifyService $verifyService)
+    public function __construct(VerifyService $verifyService)
     {
         $this->source = \Storage::disk('source');
         $this->destination = \Storage::disk('destination');
-        $this->id3 = $getID3;
         $this->verifyService = $verifyService;
     }
 
@@ -67,7 +64,7 @@ class RenameService
         }
 
         if (count($this->source->files($directory))) {
-            $tags = $this->getTags($directory);
+            $tags = $this->getTags($this->source, $directory);
 
             if (!$verify || $this->verifyService->verify($tags)) {
                 $this->command->info('Moving "'.$directory.'"');
@@ -88,25 +85,6 @@ class RenameService
             $this->command->info('Directory "'.$directory.'" is empty; removing');
             $this->source->deleteDir($directory);
         }
-    }
-
-    /**
-     * Get the id3 tags for all files in a directory
-     *
-     * @param string $directory
-     *
-     * @return Collection
-     */
-    protected function getTags($directory)
-    {
-        $tags = collect();
-        foreach ($this->source->files($directory) as $file) {
-            $tags->put(
-                basename($file),
-                collect($this->id3->analyze($this->source->path($file))['tags']['id3v2'])
-            );
-        }
-        return $tags;
     }
 
     /**
