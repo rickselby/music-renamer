@@ -30,7 +30,14 @@ trait GetTagsTrait
     private function getTagsForFile($path)
     {
         $id3 = new getID3();
-        $tags = $id3->analyze($path)['tags'];
+
+        $analyzed = $id3->analyze($path);
+
+        if (!isset($analyzed['tags'])) {
+            throw new \Exception('No tags found in file '.$path);
+        }
+
+        $tags = $analyzed['tags'];
         if (isset($tags['quicktime'])) {
             $tags['id3v2'] = $this->renameQuickTime($tags['quicktime']);
         }
