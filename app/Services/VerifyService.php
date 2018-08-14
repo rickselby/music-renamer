@@ -109,7 +109,12 @@ class VerifyService
             $discTracks = $this->tags->where('part_of_a_set', $disc);
 
             $trackCounts = $discTracks->pluck('track_number')->map(function ($trackNumber) {
-                return explode('/', $trackNumber[0])[1];
+		if (!stristr($trackNumber[0], '/')) {
+		    $this->errors->push('Track count missing slash');
+		    return null;
+		} else {
+                    return explode('/', $trackNumber[0])[1];
+		}
             });
 
             if ($trackCounts->unique()->count() != 1) {

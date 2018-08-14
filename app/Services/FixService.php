@@ -74,7 +74,7 @@ class FixService
             $discTracks = $tags->where('part_of_a_set', $disc);
 
             $trackCounts = $discTracks->pluck('track_number')->map(function ($trackNumber) {
-                return explode('/', $trackNumber[0])[1];
+                return stristr($trackNumber[0], '/') ? explode('/', $trackNumber[0])[1] : 0;
             });
 
             if ($trackCounts->unique()->count() == 1 && $trackCounts->unique()->first() == '0') {
@@ -129,7 +129,7 @@ class FixService
         } else {
 
             $discCounts = $tags->pluck('part_of_a_set')->map(function ($discNumber) {
-                return explode('/', $discNumber[0])[1];
+                return stristr('/', $discNumber[0]) ? explode('/', $discNumber[0])[1] : 0;
             });
 
             $discCount = $tags->pluck('part_of_a_set')->unique()->count();
@@ -158,7 +158,7 @@ class FixService
     protected function updateDiscCount(string $path, Collection $tags, $count)
     {
         $number = explode('/', $tags['part_of_a_set'][0])[0];
-        $tags->put('part_of_a_set', [$number.'/'.$count]);
+        $tags->put('part_of_a_set', [$number.'/'.str_pad($count, 2, '0', STR_PAD_LEFT)]);
         $this->updateTags($path, $tags);
     }
 
@@ -188,6 +188,9 @@ class FixService
         $tagWriter->tag_encoding = 'UTF-8';
         $tagWriter->filename = $path;
         $tagWriter->tag_data = $tags->toArray();
+
+        unset($tagWriter->tag_data['text']);
+        unset($tagWriter->tag_data['comment']);
 
         if (!$tagWriter->WriteTags()) {
             $this->command->error('Writing tags failed:');
